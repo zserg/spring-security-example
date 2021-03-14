@@ -3,6 +3,7 @@ package ru.zserg.securityexample;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -32,33 +33,48 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Autowired
     SecurityContextRepository securityContextRepository;
 
-    @Override
-    public void configure(WebSecurity web) throws Exception {
-        web
-                .ignoring()
-                .antMatchers("/api/v1/auth");
-    }
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        http.cors()
-                .and()
-                .sessionManagement()
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                .disable()
-                .addFilterAfter(authenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-                .authorizeRequests()
-                .anyRequest()
-                .authenticated()
-                .and()
-                .csrf().disable()
-                .formLogin().disable()
-                .httpBasic().disable();
+    @Configuration
+    @Order(1)
+    public static class PermitAllWebSecurityConfigurationAdapter extends WebSecurityConfigurerAdapter {
+        protected void configure(HttpSecurity http) throws Exception {
+            http.cors()
+                    .and()
+                    .antMatcher("/api/v1/auth")
+                    .authorizeRequests()
+                    .anyRequest().permitAll()
+                    .and()
+                    .csrf().disable()
+                    .formLogin().disable()
+                    .httpBasic().disable();
+        }
     }
 
-    @Bean
-    JWTAuthorizationFilter authenticationFilter() throws Exception {
-        final JWTAuthorizationFilter filter = new JWTAuthorizationFilter(PROTECTED_URLS);
-        filter.setAuthenticationManager(authenticationManager());
-        return filter;
+    @Configuration
+    @Order(2)
+    public static class JwtWebSecurityConfigurationAdapter extends WebSecurityConfigurerAdapter {
+        protected void configure(HttpSecurity http) throws Exception {
+            final JWTAuthorizationFilter filter = new JWTAuthorizationFilter(PROTECTED_URLS);
+            filter.setAuthenticationManager(authenticationManager());
+            http.cors()
+                    .and()
+                    .sessionManagement()
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                    .disable()
+                    .addFilterAfter(filter, UsernamePasswordAuthenticationFilter.class)
+                    .authorizeRequests()
+                    .anyRequest()
+                    .authenticated()
+                    .and()
+                    .csrf().disable()
+                    .formLogin().disable()
+                    .httpBasic().disable();
+        }
     }
+
+//    @Bean
+//    JWTAuthorizationFilter authenticationFilter() throws Exception {
+//        final JWTAuthorizationFilter filter = new JWTAuthorizationFilter(PROTECTED_URLS);
+//        filter.setAuthenticationManager(authenticationManager());
+//        return filter;
+//    }
 }
